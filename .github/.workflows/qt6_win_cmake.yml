@@ -1,0 +1,44 @@
+name: Qt6 GUI Application CI on Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  QT_VERSION: "6.4.0"
+
+jobs:
+  build_msvc:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup MSVC Environment
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Cache Qt
+      id: cache-qt
+      uses: actions/cache@v2
+      with:
+        path: |
+          C:\Qt\${{ env.QT_VERSION }}
+        key: ${{ runner.os }}-qt6-${{ env.QT_VERSION }}
+
+    - name: Install Qt (if cache miss)
+      if: steps.cache-qt.outputs.cache-hit != 'true'
+      run: |
+        choco install -y qt6 --version=${{ env.QT_VERSION }} --params="'/AddToPath /SkipMD5Check'"
+
+    - name: Configure CMake (MSVC)
+      shell: cmd
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 16 2019" -A x64 -DCMAKE_PREFIX_PATH="C:\\Qt\\${{ env.QT_VERSION }}\\msvc2019_64"
+
+    - name: Build with MSBuild (MSVC)
+      shell: cmd
+      run: |
+        msbuild build\qt_test.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64
